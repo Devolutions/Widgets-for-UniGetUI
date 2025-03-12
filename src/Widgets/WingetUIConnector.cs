@@ -79,21 +79,32 @@ namespace WidgetsForUniGetUI
 
                     new Template_LoadingPage(Widget).UpdateWidget();
 
-                    string old_path = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".wingetui", "CurrentSessionToken");
-                    string new_path = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "UniGetUI", "CurrentSessionToken");
+                    string path_1 = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".wingetui", "CurrentSessionToken");
+                    string path_2 = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "UniGetUI", "CurrentSessionToken");
+                    string path_3 = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "UniGetUI", "Configuration", "CurrentSessionToken");
+
+                    DateTime date_1 = DateTime.MinValue;
+                    DateTime date_2 = DateTime.MinValue;
+                    DateTime date_3 = DateTime.MinValue;
 
                     string SessionTokenFile;
-                    if (!File.Exists(new_path))
-                        SessionTokenFile = old_path;
-                    else if (!File.Exists(old_path))
-                        SessionTokenFile = new_path;
-                    else
+
+                    if (File.Exists(path_1)) date_1 = new FileInfo(path_1).LastWriteTimeUtc;
+                    if (File.Exists(path_2)) date_2 = new FileInfo(path_2).LastWriteTimeUtc;
+                    if (File.Exists(path_3)) date_3 = new FileInfo(path_3).LastWriteTimeUtc;
+
+                    if (date_1 > date_2 && date_1 > date_3) SessionTokenFile = path_1;
+                    else if (date_2 > date_1 && date_2 > date_3) SessionTokenFile = path_2;
+                    else if (date_3 > date_1 && date_3 > date_2) SessionTokenFile = path_3;
+                    else SessionTokenFile = path_3; // If none of the files exist
+
+                    if(!File.Exists(SessionTokenFile))
                     {
-                        FileInfo old_path_data = new(old_path);
-                        DateTime old_created = old_path_data.LastWriteTimeUtc; //File Creation
-                        FileInfo new_path_data = new(new_path);
-                        DateTime new_created = new_path_data.LastWriteTimeUtc; //File Creation
-                        SessionTokenFile = old_created > new_created ? old_path : new_path;
+                        Logger.Log("GetAvailableUpdates: ABORTED connection to UniGetUI due to NO_AUTH_TOKEN");
+                        result.Succeeded = is_connected_to_host = false;
+                        result.ErrorReason = "NO_AUTH_TOKEN";
+                        if (UpdateCheckFinished != null) UpdateCheckFinished(this, result);
+                        return;
                     }
 
                     StreamReader reader = new(SessionTokenFile);
